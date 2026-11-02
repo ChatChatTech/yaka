@@ -4,7 +4,7 @@
 
 | 对象 | 固定值 |
 |---|---|
-| 公开快照 | `ChatChatTech/yaka/firmware`；私有开发来源见 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md) |
+| 产品仓库 | `njueeRay/hi-yaka-firmware`，private |
 | 上游 | `78/xiaozhi-esp32` |
 | 上游发布 | `v2.5.2` |
 | 上游提交 | `49b4380b3faa0ceadd28a3e78aaf0f311c46c57e` |
@@ -26,7 +26,7 @@ M1 只建立正式固件仓库和可运行的板级最小入口：
 3. 输出复位原因、Flash ID/容量和内部堆信息；
 4. 初始化共享 I2C 并探测五个固定地址；
 5. 按“先安全值、后输出方向”的顺序初始化 PCA9557；
-6. 在固定 Linux/ESP-IDF 6.1 环境完成构建并记录制品；
+6. 在固定 Linux CI runner 与 ESP-IDF 6.1 容器完成构建并记录制品；
 7. 保持 LCD、存储、音频和产品行为未启用，避免把编译成功误报为实板通过。
 
 ## 3. 无 PSRAM 约束

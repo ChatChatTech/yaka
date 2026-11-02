@@ -1,10 +1,10 @@
 # HiYaKa 固件总体架构与开发基线
 
-> 文档状态：`评审基线 v1.4`
+> 文档状态：`评审基线 v1.5`
 > 最近更新：2026-11-02
 > 适用硬件：ChatChat HiYaKa / ESP32-C6
 > 适用软件基线：`xiaozhi-esp32 v2.5.2`、ESP-IDF `v6.1`  
-> 当前实现阶段：PH0–PH5 已完成；M1 首板执行包已就绪，实板验证尚未开始
+> 当前实现阶段：PH0–PH5 已完成；M1 安全基线与 M2–M5 实板前适配已就绪，实板验证尚未开始
 
 本文回答后续开发中最容易混淆的五个问题：产品究竟要完成什么、现有硬件实际能做什么、小智上游哪些能力可以直接复用、HiYaKa 必须自行开发什么，以及代码应按什么边界演进。
 
@@ -25,7 +25,7 @@ PRD 与硬件审计原文保存在 HiYaKa 项目资料区，不复制进固件�
 
 ### 0.2 公开快照阅读顺序
 
-本公开版本保留可审查的文字架构、代码和测试，不发布内部协作附件。建议依次阅读本文、[`main/yaka/README.md`](../../main/yaka/README.md)、[OTA 与资源合同](update-assurance.md)、[M1 基线](m1-baseline.md)和[首板验证包](../bringup/README.md)。实现状态必须以代码、测试和 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md) 的证据边界共同判断。
+本公开版本保留可审查的文字架构、代码和测试，不发布包含内部协作与远程环境细节的图形编辑源。建议依次阅读本文、[`main/yaka/README.md`](../../main/yaka/README.md)、[OTA 与资源合同](update-assurance.md)、[M1 基线](m1-baseline.md)、[实板前适配状态](../bringup/PREBOARD_ADAPTER_STATUS.md)和[首板验证包](../bringup/README.md)。实现状态必须以代码、测试和 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md) 的证据边界共同判断。
 
 ### 0.3 HiYaKa 命名合同
 
@@ -133,22 +133,22 @@ PCA9557 上电必须先写 Output Port=`0x40`，再写 Configuration=`0x38`，�
 
 ### 4.1 代码仓库现状审计
 
-下表只描述 2026-11-01 当前 checkout 中确实存在的代码。`计划文件` 尚不存在，必须在本架构获批后才允许逐阶段创建。
+下表只描述 2026-11-02 当前 checkout 中确实存在的代码。绿色/L0 实现仍必须经过 L1–L3 实板证据才能关闭产品里程碑。
 
 | 层/能力 | 当前文件 | 当前事实 | 目标落点 |
 |---|---|---|---|
 | 入口 | `main/main.cc` | 初始化 NVS，随后调用 `Application::Initialize()` 与永久运行的 `Application::Run()` | 不另建第二个系统入口 |
 | 主控制面 | `main/application.h/.cc` | EventGroup 驱动主循环，集中处理网络、对话、音频、OTA 和状态变化；`Schedule()` 将跨任务回调汇聚回主任务 | 保留并复用；HiYaKa 通过窄适配层交互，不把产品逻辑散写进该文件 |
 | 会话状态 | `main/device_state.h/.cc`、`main/device_state_machine.h/.cc` | 管理 starting、wifi、idle、connecting、listening、speaking、upgrading 等小智会话/设备态 | 只读映射为 HiYaKa `DialoguePhase`，不承担录音、NFC、页面等完整产品状态 |
-| 音频管线 | `main/audio/audio_service.*`、`audio_processor/lite_audio_processor.*`、`audio_codec.*` | 已有固定容量音频队列、输入/输出/Opus 任务；C6 使用 LiteAudioEngine，无设备端 AEC | 接入真实 ES7210/ES8311 与非阻塞录音分流；保留 I²S RX 单一所有者 |
+| 音频管线 | `main/audio/audio_service.*`、`audio_processor/lite_audio_processor.*`、`audio_codec.*` | 已有固定容量音频队列、输入/输出/Opus 任务；C6 使用 LiteAudioEngine；已增加可开关 PCM 回调给本地录音分流 | ES7210/ES8311 候选接入已编译；slot、增益、参考通道和声学表现待实板 |
 | 云端协议 | `main/protocols/protocol.*`、`mqtt_protocol.*`、`websocket_protocol.*` | 已有会话建立、音频包和 JSON 消息通道 | `XiaozhiAdapter` 只做产品事件/命令映射，不重写协议 |
 | 通用板抽象 | `main/boards/common/board.*`、`wifi_board.*` | `Board`/`WifiBoard` 提供 Display、Led、AudioCodec、Network 等抽象和 Wi-Fi 生命周期 | HiYaKa board 继续继承，不绕过抽象从业务层访问 GPIO |
-| ChatChat HiYaKa 板级 | `main/boards/chatchat/hi-yaka/hi_yaka_board.cc`、`config.h`、`config.json` | 只有 M1：启动诊断、I²C0 GPIO10/11、PCA9557 安全态与五地址探测；仍返回 `DummyAudioCodec`、`NoDisplay`、`NoLed` | 逐阶段替换真实驱动，并把每项结果汇总为 capability health |
+| ChatChat HiYaKa 板级 | `main/boards/chatchat/hi-yaka/`、`config.h`、`config.json` | `hi-yaka` 保持 M1 安全态；`hi-yaka-lab` 编译显示、输入、反馈、电池、音频、存储、辅助探测和产品运行时；每项由 Kconfig 独立隔离 | 首板从安全构建开始，按模块升级到 L1/L2，不直接全开 |
 | 板型选择 | `main/Kconfig.projbuild`、`main/CMakeLists.txt`、`main/boards/.../config.json` | `BOARD_TYPE_HI_YAKA` → board 目录 → `DECLARE_BOARD(HiYaKaBoard)` 已成立 | 保持每个固件只有一个 board factory；对外统一称 HiYaKa |
 | Flash/OTA | `partitions/hi-yaka-16m.csv`、`main/ota.*`、`main/yaka/update_assurance.*`、`main/settings.*`、`main/assets.*` | HiYaKa 双 OTA 分区已冻结；包身份/版本/硬件兼容/摘要/签名接口、配置迁移事务和首启确认已形成 L0 实现 | 生产签名、低电量/录音互斥与真实掉电回滚仍待接入和实板验证 |
-| UI/反馈 | 通用 `display/`、`led/`、`notify_player.*`；HiYaKa 当前为 `NoDisplay`/`NoLed` | 上游基础设施可复用，但没有 HiYaKa 200×320 页面、实体键焦点、RGB/振动语义 | 计划 `main/yaka/feedback_service.*` 与 HiYaKa display/driver 接入 |
-| 本地录音/文件 | `main/yaka/recording_store.*`、host backend | `.part`、checkpoint、sync、最终提交和启动恢复合同已有 L0 故障注入 | TF/FatFs adapter、capture adapter、文件格式和实板掉电仍待实现 |
-| 产品协调 | `main/yaka/product_controller.*`、`product_types.h`、`bounded_queue.h`、`capability_registry.*`、`product_ports.h`、`simulated_product_ports.h`、`business_flows.*`、`recording_store.*`、`update_assurance.*` | PH2–PH4 已建立正交产品状态、固定容量队列、能力健康、十类端口、业务流程、可靠录音、升级包/迁移/回滚合同和 200×320 页面模型；尚未完整接入真实 `Application` 与板级驱动 | 实板驱动与运行时资源继续按 M1–M7 验证 |
+| UI/反馈 | `hi_yaka_expander_lcd_io.*`、`hi_yaka_input.*`、`hi_yaka_feedback.*`、`hi_yaka_adc.*` | ST7789 使用 PARLIO 避开 TF 的 SPI2；ADC/GPIO 输入、RGB/灯阵、马达和电池采样已形成 L0 候选实现 | 方向、色序、阈值、亮度、电流和电量曲线待实板标定 |
+| 本地录音/文件 | `main/yaka/recording_store.*`、`runtime_adapter.*`、`hi_yaka_storage.*` | AudioService 单一采集所有者向 12 块有界队列分流；独立任务写 TF；`.part`/checkpoint/sync/rename/恢复已接 FatFs；丢块或写失败拒绝提交 | 录音容器、慢卡/满卡/拔卡/硬切和文件互操作待 L1/L2 |
+| 产品协调 | `main/yaka/product_controller.*`、`runtime_adapter.*` 及相关合同 | 已将网络事件、DeviceState、实体输入、AudioService、真实板级能力和存储端口接入唯一产品协调者 | 产品按键语义、完整 UI、联网/对话/录音并发仍待产品冻结与实板验证 |
 
 ## 5. 目标软件架构
 
@@ -229,13 +229,13 @@ ES7210/I²S → AudioCodec → AudioService → LiteAudioEngine
 
 ### 6.2 本地录音路径
 
-I²S RX 只能有一个所有者。不得让“小智对话任务”和“录音任务”同时直接读取 DMA。推荐在 HiYaKa codec/capture adapter 处做非阻塞分流：
+I²S RX 只能有一个所有者。当前实现让 AudioService 保持唯一采集所有者，并通过可开关 PCM 回调做非阻塞分流：
 
 1. AudioService 继续获得上游所需 PCM；
-2. 录音启用时，把同一批采集帧引用或复制到固定块池；
-3. Recorder task 独立封装并顺序写 TF；
-4. 队列满时记录丢帧并进入明确错误策略，不能阻塞 I²S DMA；
-5. 停止时完成容器头、`fsync`、关闭并将 `.part` 原子改名为正式文件。
+2. 录音启用时，将第一个输入通道复制为 160-sample 固定块；
+3. 零等待投递到容量 12 的队列，由 `hi_yaka_writer` 独立顺序写 TF；
+4. 队列满、写卡失败或停止后 500 ms 内未排空时设置录音故障，绝不阻塞 I²S 采集；
+5. 提交前必须同时满足队列排空、写任务空闲、无丢块和无写入故障；否则中止并删除临时文件。
 
 录音采样率、通道数、格式、分段、文件名和最大时长仍由 PRD 决定。实现之前先用原始 PCM 采集验证双麦、参考通道、增益、底噪和串扰，不提前把未验证参数固化为产品格式。
 
@@ -261,7 +261,7 @@ I²C 设备、NFC、IMU、RGB 等非关键能力失败时应降级；Flash、关
 |---|---|---|
 | I²S/DMA 回调 | 搬运、时间戳、通知 | 文件写入、网络发送、I²C、长日志、动态大分配 |
 | 上游音频任务 | 输入、Lite engine、Opus、播放 | 直接管理 TF 文件或产品页面 |
-| Recorder task | 容器化和顺序写 TF | 阻塞采集任务；无界缓存 |
+| `hi_yaka_writer` | 4096 栈、优先级 3；顺序写 TF | 阻塞采集任务；无界缓存；故障后仍提交 |
 | ProductController | 串行处理产品事件和转换 | 执行耗时 I/O；被驱动回调重入 |
 | UI task | 局部刷新和焦点导航 | 修改业务真值；全屏双缓冲默认常驻 |
 | Network task | 配网、会话、上传/下载 | 直接持有录音 DMA 缓冲 |
@@ -294,9 +294,11 @@ M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB ap
 
 产品开发固定在明确的小智 release/tag 上，不追随上游 `main`。上游升级使用独立 PR 和 merge commit；功能 PR 默认 squash。同步 PR 不混入新产品功能，并至少构建 HiYaKa C6 板型和一个上游 C6 代表板型。详细流程见仓库根目录 `UPSTREAM.md`。
 
+发布构建固定使用 Ubuntu 24.04 runner 与 `espressif/idf:v6.1` 容器；公开 CI 重新构建快照并生成资源报告、哈希和 provenance。
+
 ## 11. 分阶段实现建议
 
-这些阶段是需要实板证据的 M1–M7，不替代产品审批。硬件到达前的 PH0–PH5 只关闭 L0 工程项，详见[证据等级与里程碑矩阵](../bringup/EVIDENCE_LEVEL_MATRIX.md)；即使 host test、模拟和编译全部通过，也不得提前勾选需要 L1–L3 物理证据的 M1–M7 条目。
+这些阶段是需要实板证据的 M1–M7，不替代 PRD 版本审批。硬件到达前的 PH0–PH5 只关闭 L0 工程项，详见[固件 PRD 与里程碑](../governance/FIRMWARE_PRD.md)；即使 host test、模拟和编译全部通过，也不得提前勾选需要 L1–L3 物理证据的 M1–M7 条目。
 
 | 阶段 | 目标 | 退出证据 |
 |---|---|---|
@@ -325,4 +327,4 @@ M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB ap
 
 ## 13. 当前状态
 
-截至 2026-11-02：PH0–PH5 已取得 L0 证据。产品内核、可配置输入、对话恢复、checkpoint 录音、宿主文件系统故障注入、辅助能力降级、200×320 页面模型、双 OTA 分区、升级保障、配置迁移、首启确认、资源门禁、候选产物追溯和首板证据工具均已进入公开快照。精确来源 SHA、测试和构建结果见 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md)。真实硬件仍未连接，宿主文件系统也不能证明 TF/FAT 掉电安全，L0 状态机也不能证明实板掉电、首启确认和回滚，因此 M1 及全部实板功能仍无 L1/L2 证据。
+截至 2026-11-02：PH0–PH5 已取得 L0 证据；PR #11 继续把 M2–M5 的确定性工作推进到真实板级适配。新增内容包括分模块安全开关、PCA9557 并发安全控制、LCD PARLIO panel IO、ADC/GPIO 输入、电池、RGB/灯阵/马达、ES7210/ES8311、TF/FatFs、AudioService PCM 分流、独立录音写卡任务和 `RuntimeAdapter`。ESP32-C6 只有一个用户 SPI 控制器，因此资源合同固定为 TF 独占 SPI2、LCD 使用 PARLIO 候选路径。`hi-yaka` 仍是 M1 安全构建，`hi-yaka-lab` 只用于编译覆盖和逐项调试。真实硬件仍未连接，所有新增结论均为 L0；屏幕、电气、输入阈值、音频通道、TF/FAT 掉电安全、联网体验和 OTA 回滚仍无 L1/L2 证据。

@@ -13,12 +13,12 @@ PARTITION = ROOT / "partitions" / "hi-yaka-16m.csv"
 
 class HiYaKaAssuranceTest(unittest.TestCase):
     def test_github_jobs_pin_ubuntu_24_04(self):
-        workflow_root = ROOT / ".github" / "workflows"
+        workflow_dir = ROOT / ".github" / "workflows"
         expected_jobs = 8
-        if not workflow_root.exists():
-            workflow_root = ROOT.parent / ".github" / "workflows"
+        if not workflow_dir.exists():
+            workflow_dir = ROOT.parent / ".github" / "workflows"
             expected_jobs = 2
-        workflows = sorted(workflow_root.glob("*.yml"))
+        workflows = sorted(workflow_dir.glob("*.yml"))
         self.assertTrue(workflows)
         job_count = 0
         for workflow in workflows:
@@ -35,7 +35,7 @@ class HiYaKaAssuranceTest(unittest.TestCase):
         self.assertEqual(result["partitions"][3]["size"], 0x3F0000)
         self.assertEqual(result["partitions"][4]["offset"], 0x410000)
         self.assertGreater(result["unallocated_bytes"], 0)
-        self.assertEqual(assurance.validate_source_budgets(policy)["additional_product_tasks"], 0)
+        self.assertEqual(assurance.validate_source_budgets(policy)["additional_product_tasks"], 1)
 
     def test_overlap_is_rejected(self):
         policy = assurance.load_policy(POLICY)
