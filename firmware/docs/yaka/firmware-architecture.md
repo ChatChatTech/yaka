@@ -1,12 +1,12 @@
-# YaKa 3.0 固件总体架构与开发基线
+# HiYaKa 固件总体架构与开发基线
 
-> 文档状态：`工作基线 v1.0`  
-> 最近更新：2026-10-29  
-> 适用硬件：YaKa 3.0 / ESP32-C6  
+> 文档状态：`评审基线 v1.4`
+> 最近更新：2026-11-02
+> 适用硬件：ChatChat HiYaKa / ESP32-C6
 > 适用软件基线：`xiaozhi-esp32 v2.5.2`、ESP-IDF `v6.1`  
-> 当前实现阶段：M1 最小板级启动与总线安全态
+> 当前实现阶段：PH0–PH5 已完成；M1 首板执行包已就绪，实板验证尚未开始
 
-本文回答后续开发中最容易混淆的五个问题：产品究竟要完成什么、现有硬件实际能做什么、小智上游哪些能力可以直接复用、YaKa 必须自行开发什么，以及代码应按什么边界演进。
+本文回答后续开发中最容易混淆的五个问题：产品究竟要完成什么、现有硬件实际能做什么、小智上游哪些能力可以直接复用、HiYaKa 必须自行开发什么，以及代码应按什么边界演进。
 
 本文不是原理图审计报告，也不替代 PRD。实现事实发生冲突时，优先级为：当前活体原理图/PCB与最终复审结论、批准后的 PRD、本文、历史资料。PRD 中仍标记为 `TBD` 的行为，本文不会擅自冻结。
 
@@ -14,23 +14,53 @@
 
 | 来源 | 本次采用版本 | 用途与边界 |
 |---|---|---|
-| YaKa 3.0 产品需求文档 | `v0.3`，2026-10-20，草稿/待产品评审 | 定义产品目标、范围、交互与验收；未批准项继续保留 `候选/TBD` |
-| YaKa 3.0 封存前原理图、PCB 与 PRD 全链路复审 | `R1.6`，2026-10-21 | 当前硬件事实、能力边界、引脚/总线/器件和 EVT 风险的主要依据 |
-| EasyEDA Pro 活体工程 | YaKa v3.0，复审记录中的工程 UUID | 原理图或 PCB 变更后优先于本文；变更必须重新同步固件硬件契约 |
+| HiYaKa 产品需求文档 | `v0.4`，2026-10-30，当前协作基线 | 定义产品目标、范围、交互与验收；未批准项继续保留 `候选/TBD` |
+| HiYaKa 封存前原理图、PCB 与 PRD 全链路复审 | `R1.6`，2026-10-21 | 当前硬件事实、能力边界、引脚/总线/器件和 EVT 风险的主要依据 |
+| EasyEDA Pro 活体工程 | HiYaKa，复审记录中的工程 UUID | 原理图或 PCB 变更后优先于本文；变更必须重新同步固件硬件契约 |
 | xiaozhi-esp32 | tag `v2.5.2`，commit `49b4380` | 当前软件脚手架和可复用能力的精确基线，不代表永久追随上游 `main` |
 | ESP-IDF | 官方 `v6.1` 镜像 | 编译器、组件、C6 target 和构建行为基线 |
 | 历史 `yaka-firmware` 与旧架构材料 | 只作线索 | 不作为编译环境、驱动接口、引脚或功能状态的权威来源 |
 
-PRD 与硬件审计原文保存在 YaKa 项目资料区，不复制进固件仓库，以免形成两份可独立修改的“真相”。本文件只固化固件开发所需的已确认结论和明确未决项。
+PRD 与硬件审计原文保存在 HiYaKa 项目资料区，不复制进固件仓库，以免形成两份可独立修改的“真相”。本文件只固化固件开发所需的已确认结论和明确未决项。
+
+### 0.2 公开快照阅读顺序
+
+本公开版本保留可审查的文字架构、代码和测试，不发布内部协作附件。建议依次阅读本文、[`main/yaka/README.md`](../../main/yaka/README.md)、[OTA 与资源合同](update-assurance.md)、[M1 基线](m1-baseline.md)和[首板验证包](../bringup/README.md)。实现状态必须以代码、测试和 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md) 的证据边界共同判断。
+
+### 0.3 HiYaKa 命名合同
+
+- 板子的对外名称和架构语义名称统一为 **HiYaKa**，所属组织为 **ChatChat**；需要表达归属时写“ChatChat HiYaKa”。
+- 新标识按表示法固定：可读/驼峰形式为 `HiYaKa`，全小写短横线形式为 `hi-yaka`，全大写下划线形式为 `HI_YAKA`；不再派生其他拼法。
+- 当前硬件系列统一称 `HiYaKa`，现行架构、代码和日志不使用代际后缀。
+- 目录和 build ID 使用 `chatchat/hi-yaka` / `hi-yaka`，类名使用 `HiYaKaBoard`，宏使用 `BOARD_TYPE_HI_YAKA`，文件名使用 `hi_yaka_board.cc`。
+- 文档、架构图、日志、测试、CI 和构建链必须引用同一组标识，不保留带代际后缀的兼容别名。
+
+### 0.4 架构图颜色与线型合同
+
+四页架构图使用完全相同的视觉语义。颜色只表示对象角色，线型只表示关系或实现状态，不得按页面临时改义。
+
+| 视觉样式 | 统一语义 |
+|---|---|
+| 蓝色 | 当前复用的小智或上游现有实现 |
+| 绿色 | HiYaKa 仓库内已经存在的本地实现或事实源 |
+| 橙色虚线框 | 尚待批准或尚待实现的目标组件 |
+| 黄色 | 已确认的合同、配置、调度机制、中间过程或可追溯产物 |
+| 紫色 | 云端、外部系统、公开发布目标或协作副本等边界外对象 |
+| 灰色 | 物理器件、用户端点、运行上下文或仅用于分组的容器 |
+| 红色 | 约束、风险、验证门禁、证据要求或禁止事项 |
+| 实线连接 | 当前存在或已经确认的关系 |
+| 虚线连接 | 计划关系、待实现接缝或尚未取得实板证据的路径 |
+
+每一页底部都重复显示完整图例。判断节点状态时必须同时读取颜色和线型，不能只凭颜色推断“已完成”。
 
 ## 1. 项目理解
 
-YaKa 3.0 是一款轻薄、便携、Wi-Fi-only、带非触控屏幕和实体导航的 AI 终端。其两个第一层任务是：
+HiYaKa 是一款轻薄、便携、Wi-Fi-only、带非触控屏幕和实体导航的 AI 终端。其两个第一层任务是：
 
 1. AI 语音对话：采集、云端处理、播放、打断和失败恢复；
 2. 本地录音：快速开始、持续可感知、可靠保存、异常掉电后尽量恢复。
 
-屏幕、四向键、动作键、NFC、IMU、RGB 和振动都服务于上述主线，不应各自膨胀成无关功能集合。3.0 明确不包含 4G/SIM、5 GHz Wi-Fi、主动式蓝牙音频、摄像头、触摸和游戏功能。
+屏幕、四向键、动作键、NFC、IMU、RGB 和振动都服务于上述主线，不应各自膨胀成无关功能集合。HiYaKa 明确不包含 4G/SIM、5 GHz Wi-Fi、主动式蓝牙音频、摄像头、触摸和游戏功能。
 
 MVP 还必须形成配网、离线降级、文件管理、NFC 只读业务、用户确认 OTA、诊断和错误恢复闭环。当前 PRD 仍是待产品评审稿；按键语义、录音格式和时长、NFC 业务、离线范围、量化延迟/续航等参数仍是产品决策，不允许由驱动代码反向决定。
 
@@ -69,7 +99,7 @@ PCA9557 上电必须先写 Output Port=`0x40`，再写 Configuration=`0x38`，�
 
 经典 ESP32-C6 不支持外部 PSRAM，这不是封装差异，也不是少焊一颗存储器。更换 C6 的 QFN32/QFN40 封装不会得到 PSRAM；ESP32-C61 是另一颗 SoC，不是 C6 的封装选项或可直接替换料号。
 
-这不会阻止 YaKa 完成联网对话、局部刷新 UI、流式录音、TF 存储、NFC 和 OTA，但会排除“用大内存掩盖架构问题”的实现方式：
+这不会阻止 HiYaKa 完成联网对话、局部刷新 UI、流式录音、TF 存储、NFC 和 OTA，但会排除“用大内存掩盖架构问题”的实现方式：
 
 - 200×320 RGB565 单个全屏缓冲为 128,000 字节，约 125 KiB；禁止默认采用全屏双缓冲；
 - LCD 使用按实测选择高度的局部行缓冲，DMA 缓冲要有明确所有权；
@@ -83,31 +113,50 @@ PCA9557 上电必须先写 Output Port=`0x40`，再写 Configuration=`0x38`，�
 
 ## 4. 小智上游的复用边界
 
-原则是“复用稳定基础设施，隔离 YaKa 产品差异”，而不是复制一份上游代码后全面魔改。
+原则是“复用稳定基础设施，隔离 HiYaKa 产品差异”，而不是复制一份上游代码后全面魔改。
 
 | 能力 | 复用策略 | 说明 |
 |---|---|---|
-| 构建系统、组件管理、C6 target | 直接复用 | YaKa 只增加独立 board 选择链 |
-| `Board` / `WifiBoard` 抽象 | 直接复用并派生 | 引脚、外设实例和安全时序只放在 YaKa board 目录 |
-| Wi-Fi 配网与连接管理 | 优先复用 | YaKa 增加屏幕状态映射和产品恢复入口 |
-| `Application` 主事件循环 | 复用，建立窄适配层 | 不让 YaKa 业务遍布上游核心文件 |
+| 构建系统、组件管理、C6 target | 直接复用 | HiYaKa 只增加独立 board 选择链 |
+| `Board` / `WifiBoard` 抽象 | 直接复用并派生 | 引脚、外设实例和安全时序只放在 HiYaKa board 目录 |
+| Wi-Fi 配网与连接管理 | 优先复用 | HiYaKa 增加屏幕状态映射和产品恢复入口 |
+| `Application` 主事件循环 | 复用，建立窄适配层 | 不让 HiYaKa 业务遍布上游核心文件 |
 | MQTT/WebSocket 协议与音频上下行 | 直接复用 | 后端协议版本仍需产品绑定 |
 | `AudioService`、Opus、固定容量队列 | 直接复用 | C6 使用 `LiteAudioEngine`；禁用设备端 AEC |
-| ES8311/ES7210 codec 基础 | 参考并复用公共实现 | YaKa 仍需核对 I²S slot、双麦、参考通道、PA 时序和录音分流 |
-| LVGL、字体和资源打包 | 复用基础设施 | YaKa 自行实现 200×320 非触控页面、局部缓冲和实体键焦点模型 |
-| 设置/NVS、版本与基础诊断 | 复用并扩展 | 需增加硬件 revision、能力健康和 YaKa 错误码 |
+| ES8311/ES7210 codec 基础 | 参考并复用公共实现 | HiYaKa 仍需核对 I²S slot、双麦、参考通道、PA 时序和录音分流 |
+| LVGL、字体和资源打包 | 复用基础设施 | HiYaKa 自行实现 200×320 非触控页面、局部缓冲和实体键焦点模型 |
+| 设置/NVS、版本与基础诊断 | 复用并扩展 | 需增加硬件 revision、能力健康和 HiYaKa 错误码 |
 | OTA 下载与双分区基础 | 复用传输，重做产品策略 | 必须加入用户确认、任务互斥、启动自检、确认与回滚门禁 |
 | MCP/工具调用能力 | 可选复用 | 不进入 M1，也不能挤占核心录音可靠性预算 |
 
-以下内容不能从上游“自动继承”：YaKa 产品状态机、本地录音和文件恢复、NFC 业务、按键语义、充电状态推断、RGB/振动语义、本地 AEC、整机功耗与声学参数。
+以下内容不能从上游“自动继承”：HiYaKa 产品状态机、本地录音和文件恢复、NFC 业务、按键语义、充电状态推断、RGB/振动语义、本地 AEC、整机功耗与声学参数。
+
+### 4.1 代码仓库现状审计
+
+下表只描述 2026-11-01 当前 checkout 中确实存在的代码。`计划文件` 尚不存在，必须在本架构获批后才允许逐阶段创建。
+
+| 层/能力 | 当前文件 | 当前事实 | 目标落点 |
+|---|---|---|---|
+| 入口 | `main/main.cc` | 初始化 NVS，随后调用 `Application::Initialize()` 与永久运行的 `Application::Run()` | 不另建第二个系统入口 |
+| 主控制面 | `main/application.h/.cc` | EventGroup 驱动主循环，集中处理网络、对话、音频、OTA 和状态变化；`Schedule()` 将跨任务回调汇聚回主任务 | 保留并复用；HiYaKa 通过窄适配层交互，不把产品逻辑散写进该文件 |
+| 会话状态 | `main/device_state.h/.cc`、`main/device_state_machine.h/.cc` | 管理 starting、wifi、idle、connecting、listening、speaking、upgrading 等小智会话/设备态 | 只读映射为 HiYaKa `DialoguePhase`，不承担录音、NFC、页面等完整产品状态 |
+| 音频管线 | `main/audio/audio_service.*`、`audio_processor/lite_audio_processor.*`、`audio_codec.*` | 已有固定容量音频队列、输入/输出/Opus 任务；C6 使用 LiteAudioEngine，无设备端 AEC | 接入真实 ES7210/ES8311 与非阻塞录音分流；保留 I²S RX 单一所有者 |
+| 云端协议 | `main/protocols/protocol.*`、`mqtt_protocol.*`、`websocket_protocol.*` | 已有会话建立、音频包和 JSON 消息通道 | `XiaozhiAdapter` 只做产品事件/命令映射，不重写协议 |
+| 通用板抽象 | `main/boards/common/board.*`、`wifi_board.*` | `Board`/`WifiBoard` 提供 Display、Led、AudioCodec、Network 等抽象和 Wi-Fi 生命周期 | HiYaKa board 继续继承，不绕过抽象从业务层访问 GPIO |
+| ChatChat HiYaKa 板级 | `main/boards/chatchat/hi-yaka/hi_yaka_board.cc`、`config.h`、`config.json` | 只有 M1：启动诊断、I²C0 GPIO10/11、PCA9557 安全态与五地址探测；仍返回 `DummyAudioCodec`、`NoDisplay`、`NoLed` | 逐阶段替换真实驱动，并把每项结果汇总为 capability health |
+| 板型选择 | `main/Kconfig.projbuild`、`main/CMakeLists.txt`、`main/boards/.../config.json` | `BOARD_TYPE_HI_YAKA` → board 目录 → `DECLARE_BOARD(HiYaKaBoard)` 已成立 | 保持每个固件只有一个 board factory；对外统一称 HiYaKa |
+| Flash/OTA | `partitions/hi-yaka-16m.csv`、`main/ota.*`、`main/yaka/update_assurance.*`、`main/settings.*`、`main/assets.*` | HiYaKa 双 OTA 分区已冻结；包身份/版本/硬件兼容/摘要/签名接口、配置迁移事务和首启确认已形成 L0 实现 | 生产签名、低电量/录音互斥与真实掉电回滚仍待接入和实板验证 |
+| UI/反馈 | 通用 `display/`、`led/`、`notify_player.*`；HiYaKa 当前为 `NoDisplay`/`NoLed` | 上游基础设施可复用，但没有 HiYaKa 200×320 页面、实体键焦点、RGB/振动语义 | 计划 `main/yaka/feedback_service.*` 与 HiYaKa display/driver 接入 |
+| 本地录音/文件 | `main/yaka/recording_store.*`、host backend | `.part`、checkpoint、sync、最终提交和启动恢复合同已有 L0 故障注入 | TF/FatFs adapter、capture adapter、文件格式和实板掉电仍待实现 |
+| 产品协调 | `main/yaka/product_controller.*`、`product_types.h`、`bounded_queue.h`、`capability_registry.*`、`product_ports.h`、`simulated_product_ports.h`、`business_flows.*`、`recording_store.*`、`update_assurance.*` | PH2–PH4 已建立正交产品状态、固定容量队列、能力健康、十类端口、业务流程、可靠录音、升级包/迁移/回滚合同和 200×320 页面模型；尚未完整接入真实 `Application` 与板级驱动 | 实板驱动与运行时资源继续按 M1–M7 验证 |
 
 ## 5. 目标软件架构
 
 ```mermaid
 flowchart TD
-    HW[YaKa 3.0 硬件] --> BSP[板级与驱动层]
+    HW[HiYaKa 硬件] --> BSP[板级与驱动层]
     BSP --> CAP[能力与健康层]
-    CAP --> SVC[YaKa 领域服务层]
+    CAP --> SVC[HiYaKa 领域服务层]
     SVC --> PC[ProductController 单一产品状态写入者]
     PC --> UI[屏幕 / RGB / 振动 / 提示音]
 
@@ -123,7 +172,7 @@ flowchart TD
 
 ### 5.1 板级与驱动层
 
-目录以 `main/boards/chatchat/hi-yaka-v3` 为唯一硬件真值入口，负责：
+ChatChat HiYaKa 以目录 `main/boards/chatchat/hi-yaka` 作为唯一硬件真值入口，负责：
 
 - pin、总线、地址、外设构造和上电安全态；
 - I²C 总线恢复、PCA9557、LCD、按键、TF、音频、NFC、IMU、RGB、振动、电池 ADC；
@@ -138,25 +187,25 @@ flowchart TD
 
 每个能力至少有 `unavailable / initializing / ready / degraded / failed` 状态和稳定错误码。诊断页面、UART 日志和自动测试使用同一来源，避免 UI 与日志互相矛盾。
 
-### 5.3 YaKa 领域服务层
+### 5.3 HiYaKa 领域服务层
 
-建议在后续里程碑逐步建立 `main/yaka/`，而不是一次性复制旧仓库组件：
+下列 `main/yaka/` 文件是通过架构评审后的目标落点。PH2 已创建产品内核、端口、模拟实现和能力表；其余领域服务仍按阶段新增，不允许一次性复制旧仓库组件：
 
 | 服务 | 唯一职责 |
 |---|---|
-| `DialogueService` | 将产品对话动作映射到小智会话，不重新实现网络协议 |
-| `RecorderService` | 录音开始/停止、流式写入、checkpoint、文件完成和掉电恢复 |
-| `StorageService` | TF 挂载、容量、文件索引、原子操作和错误隔离 |
-| `NfcService` | PN532 轮询、超时、解析和业务事件，不直接切换 UI 页面 |
-| `InputService` | ADC 梯标定、按键去抖、短按/长按事件；不包含页面语义 |
-| `FeedbackService` | 屏幕、RGB、振动、声音的统一语义和优先级 |
-| `PowerService` | 电量估算、低电量策略、受控收尾；不虚构不可观测充电状态 |
-| `UpdateService` | 在上游 OTA transport 上增加确认、前置条件、自检和回滚策略 |
-| `DiagnosticsService` | 版本、复位原因、堆、栈、外设健康和匿名化错误信息 |
+| `main/yaka/dialogue_service.*` | 将产品对话动作映射到小智会话，不重新实现网络协议 |
+| `main/yaka/recorder_service.*` | 录音开始/停止、流式写入、checkpoint、文件完成和掉电恢复 |
+| `main/yaka/storage_service.*` | TF 挂载、容量、文件索引、原子操作和错误隔离 |
+| `main/yaka/nfc_service.*` | PN532 轮询、超时、解析和业务事件，不直接切换 UI 页面 |
+| `main/yaka/input_service.*` | ADC 梯标定、按键去抖、短按/长按事件；不包含页面语义 |
+| `main/yaka/feedback_service.*` | 屏幕、RGB、振动、声音的统一语义和优先级 |
+| `main/yaka/power_service.*` | 电量估算、低电量策略、受控收尾；不虚构不可观测充电状态 |
+| `main/yaka/update_service.*` | 在上游 OTA transport 上增加确认、前置条件、自检和回滚策略 |
+| `main/yaka/diagnostics_service.*` | 版本、复位原因、堆、栈、外设健康和匿名化错误信息 |
 
 ### 5.4 产品状态协调
 
-不建立两个相互争抢的全局状态机。建议由 `ProductController` 作为 YaKa 产品状态唯一写入者，维护多个正交维度：
+不建立两个相互争抢的全局状态机。建议由 `ProductController` 作为 HiYaKa 产品状态唯一写入者，维护多个正交维度：
 
 - `PowerPhase`：启动、运行、受控收尾、等待硬关断、恢复；
 - `ForegroundMode`：首页、对话、录音、NFC、设置、OTA、错误；
@@ -176,11 +225,11 @@ ES7210/I²S → AudioCodec → AudioService → LiteAudioEngine
 云端 → Opus → AudioService → ES8311/I²S → HT8691R → Speaker
 ```
 
-`LiteAudioEngine` 在多通道输入时只取第一个通道作为语音上行。YaKa 接入真实 codec 前必须冻结 ES7210 的 slot 顺序，并证明第一通道确实是预期麦克风。播放参考不得误排到第一通道。
+`LiteAudioEngine` 在多通道输入时只取第一个通道作为语音上行。HiYaKa 接入真实 codec 前必须冻结 ES7210 的 slot 顺序，并证明第一通道确实是预期麦克风。播放参考不得误排到第一通道。
 
 ### 6.2 本地录音路径
 
-I²S RX 只能有一个所有者。不得让“小智对话任务”和“录音任务”同时直接读取 DMA。推荐在 YaKa codec/capture adapter 处做非阻塞分流：
+I²S RX 只能有一个所有者。不得让“小智对话任务”和“录音任务”同时直接读取 DMA。推荐在 HiYaKa codec/capture adapter 处做非阻塞分流：
 
 1. AudioService 继续获得上游所需 PCM；
 2. 录音启用时，把同一批采集帧引用或复制到固定块池；
@@ -220,6 +269,8 @@ I²C 设备、NFC、IMU、RGB 等非关键能力失败时应降级；Flash、关
 
 所有跨任务队列必须有容量、超时、满载策略和观测指标。禁止以 `std::deque` 或不断扩容的 `vector` 作为长期数据积压方案。是否引入内存池必须由实板堆碎片和延迟数据决定。
 
+当前 `Application::Schedule()` 的 `main_tasks_` 是受 mutex 保护的 `std::deque`，能正确把协议/后台回调切回主任务，但没有容量上限。这是现状审计发现的 PH2 风险，不是立即重写上游核心的理由。处理原则是：HiYaKa `ProductEventQueue` 固定容量并带来源、时间戳、关联 ID、超时和丢弃指标；只有证据证明上游调度队列本身会被产品负载压垮时，才提交最小化的上游兼容改动。
+
 ## 9. Flash、配置与数据可靠性
 
 M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB app slot、4000 KiB assets。首次 IDF 6.1 构建的 `xiaozhi.bin` 为 `0x1d3e30` 字节，最小 app 分区剩余 54%；资源镜像为 1,324,917 字节。这只说明静态容量充足，不代表运行时内部 RAM 充足。
@@ -235,20 +286,17 @@ M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB ap
 
 ## 10. 版本控制与上游同步
 
-- 私有开发仓库：`njueeRay/hi-yaka-firmware`，保存完整开发历史；
-- 公开快照：`ChatChatTech/yaka/firmware`，只接收审查后的发布内容；
+- `origin`：`njueeRay/hi-yaka-firmware` 私有产品仓库；
 - `upstream`：`78/xiaozhi-esp32`，只拉取、禁止误推；
 - `main`：可构建的产品主线；
-- `feature/*`：YaKa 功能；
+- `feature/*`：HiYaKa 功能；
 - `sync/xiaozhi-vX.Y.Z`：只做上游版本升级和冲突处理。
 
-产品开发固定在明确的小智 release/tag 上，不追随上游 `main`。上游升级使用独立 PR 和 merge commit；功能 PR 默认 squash。同步 PR 不混入新产品功能，并至少构建 YaKa C6 板型和一个上游 C6 代表板型。公开仓库只发布审查后的快照，来源见 `PUBLIC_RELEASE.md`。
-
-正式构建使用固定 ESP-IDF 6.1 容器或等价可复现环境；服务器地址、工作目录和凭据不进入公开快照。
+产品开发固定在明确的小智 release/tag 上，不追随上游 `main`。上游升级使用独立 PR 和 merge commit；功能 PR 默认 squash。同步 PR 不混入新产品功能，并至少构建 HiYaKa C6 板型和一个上游 C6 代表板型。详细流程见仓库根目录 `UPSTREAM.md`。
 
 ## 11. 分阶段实现建议
 
-这些阶段是工程执行建议，不替代 PRD 版本审批。
+这些阶段是需要实板证据的 M1–M7，不替代产品审批。硬件到达前的 PH0–PH5 只关闭 L0 工程项，详见[证据等级与里程碑矩阵](../bringup/EVIDENCE_LEVEL_MATRIX.md)；即使 host test、模拟和编译全部通过，也不得提前勾选需要 L1–L3 物理证据的 M1–M7 条目。
 
 | 阶段 | 目标 | 退出证据 |
 |---|---|---|
@@ -266,7 +314,7 @@ M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB ap
 
 发布前必须覆盖：
 
-- 编译：host contract tests、YaKa IDF 6.1 build、上游同步回归；
+- 编译：host contract tests、HiYaKa IDF 6.1 build、上游同步回归；
 - 静态：分区、引脚、I²C 地址、PCA9557 写入顺序和敏感配置扫描；
 - 实板：Flash ID/容量、五地址扫描、安全默认态、LCD、音频、TF、NFC、按键和反馈；
 - 可靠性：长时间录音、弱网、掉电、满卡、拔卡、服务器错误、看门狗和 OTA 故障注入；
@@ -277,4 +325,4 @@ M1 的 16 MiB 分区结果为：NVS 16 KiB、OTA data 8 KiB、两个 4032 KiB ap
 
 ## 13. 当前状态
 
-截至 2026-10-29：M1 软件基线已完成 IDF 6.1 编译和链接，真实硬件仍未连接，因此阶段结论是 `软件基线可进入首板 bring-up`，不是“硬件适配完成”。LCD、TF、真实音频、NFC 业务、按键产品语义和 OTA 产品策略仍未进入实板通过状态。
+截至 2026-11-02：PH0–PH5 已取得 L0 证据。产品内核、可配置输入、对话恢复、checkpoint 录音、宿主文件系统故障注入、辅助能力降级、200×320 页面模型、双 OTA 分区、升级保障、配置迁移、首启确认、资源门禁、候选产物追溯和首板证据工具均已进入公开快照。精确来源 SHA、测试和构建结果见 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md)。真实硬件仍未连接，宿主文件系统也不能证明 TF/FAT 掉电安全，L0 状态机也不能证明实板掉电、首启确认和回滚，因此 M1 及全部实板功能仍无 L1/L2 证据。

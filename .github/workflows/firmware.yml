@@ -1,0 +1,99 @@
+name: HiYaKa public firmware snapshot
+
+on:
+  pull_request:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  host-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure host tests
+        run: cmake -S tests/yaka_host -B build/yaka_host -DCMAKE_BUILD_TYPE=Release
+      - name: Build host tests
+        run: cmake --build build/yaka_host --parallel 2
+      - name: Run host tests
+        run: ctest --test-dir build/yaka_host --output-on-failure
+      - name: Validate public snapshot contracts
+        run: python -m unittest scripts.tests.test_hi_yaka_board scripts.tests.test_hi_yaka_assurance scripts.tests.test_hi_yaka_evidence -v
+
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: espressif/idf:v6.1
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build HiYaKa with ESP-IDF 6.1
+        shell: bash
+        run: |
+          source "$IDF_PATH/export.sh"
+          idf.py --version
+          python scripts/build.py chatchat/hi-yaka \
+            --name hi-yaka \
+            --language zh-CN \
+            --wake-word disabled
+      - name: Gate resources and generate public provenance
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_RUN_ID: ${{ github.run_id }}
+        run: |
+          source "$IDF_PATH/export.sh"
+          idf.py size --format json2 > build/hi-yaka-size.json
+          python scripts/hi_yaka_assurance.py resources \
+            --partition partitions/hi-yaka-16m.csv \
+            --app-bin build/xiaozhi.bin \
+            --size-json build/hi-yaka-size.json \
+            --output build/hi-yaka-resource-report.json
+          python scripts/hi_yaka_assurance.py provenance \
+            --partition partitions/hi-yaka-16m.csv \
+            --app-bin build/xiaozhi.bin \
+            --merged-bin build/merged-binary.bin \
+            --sdkconfig sdkconfig \
+            --resource-report build/hi-yaka-resource-report.json \
+            --source-sha "$SOURCE_SHA" \
+            --idf-version "$(idf.py --version)" \
+            --ci-repository "$CI_REPOSITORY" \
+            --ci-run-id "$CI_RUN_ID" \
+            --output build/hi-yaka-provenance.json
+          sha256sum \
+            build/xiaozhi.bin \
+            build/merged-binary.bin \
+            build/hi-yaka-resource-report.json \
+            build/hi-yaka-provenance.json \
+            > build/SHA256SUMS
+      - name: Upload public snapshot candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: hi-yaka-public-${{ github.sha }}
+          path: |
+            firmware/build/xiaozhi.bin
+            firmware/build/merged-binary.bin
+            firmware/build/hi-yaka-size.json
+            firmware/build/hi-yaka-resource-report.json
+            firmware/build/hi-yaka-provenance.json
+            firmware/build/SHA256SUMS
+            firmware/sdkconfig
+            firmware/partitions/hi-yaka-16m.csv
+          if-no-files-found: error

@@ -1,18 +1,19 @@
-# YaKa 3.0 固件 M1 基线
+# HiYaKa 固件 M1 基线
 
 ## 1. 版本契约
 
 | 对象 | 固定值 |
 |---|---|
-| 产品仓库 | 私有开发：`njueeRay/hi-yaka-firmware`；公开快照：`ChatChatTech/yaka/firmware` |
+| 公开快照 | `ChatChatTech/yaka/firmware`；私有开发来源见 [`PUBLIC_RELEASE.md`](../../PUBLIC_RELEASE.md) |
 | 上游 | `78/xiaozhi-esp32` |
 | 上游发布 | `v2.5.2` |
 | 上游提交 | `49b4380b3faa0ceadd28a3e78aaf0f311c46c57e` |
 | ESP-IDF | `v6.1` |
 | 构建镜像 | `espressif/idf:v6.1@sha256:81893c71bb5e570088901f21def8684c25cd2a9020281bd01b843a7655edb18c` |
 | target | `esp32c6` |
-| board type/name | `hi-yaka-v3` |
-| manufacturer | `chatchat` |
+| 对外/语义板名 | `HiYaKa` |
+| 所属组织 | `ChatChat` |
+| board/build ID | `chatchat/hi-yaka` / `hi-yaka` |
 | Flash | 16 MiB，M1 使用 DIO |
 | PSRAM | 不支持、禁用 |
 
@@ -21,11 +22,11 @@
 M1 只建立正式固件仓库和可运行的板级最小入口：
 
 1. 固定上游和 ESP-IDF 版本；
-2. 建立唯一 YaKa 板型与构建选择链；
+2. 建立唯一 HiYaKa 板型与构建选择链；
 3. 输出复位原因、Flash ID/容量和内部堆信息；
 4. 初始化共享 I2C 并探测五个固定地址；
 5. 按“先安全值、后输出方向”的顺序初始化 PCA9557；
-6. 在可复现的远程 Linux 环境完成构建并记录制品；
+6. 在固定 Linux/ESP-IDF 6.1 环境完成构建并记录制品；
 7. 保持 LCD、存储、音频和产品行为未启用，避免把编译成功误报为实板通过。
 
 ## 3. 无 PSRAM 约束
@@ -60,3 +61,7 @@ ESP32-C6 不支持外部 PSRAM，因此该 target 的 Kconfig 不提供可启用
 | I2C 地址和 PCA9557 readback | 尚需首板验证 |
 
 M1 的阶段结论只能是“软件基线可进入首板 bring-up”，不能写成“硬件适配完成”。
+
+## 6. 首板执行入口
+
+硬件到位后按[首板上电与基础验证手册](../bringup/FIRST_BOARD_VALIDATION.md)执行，并用 `scripts/hi_yaka_evidence.py` 绑定样机、固件候选和原始证据。M1 必需记录为 `power`、`flash`、`i2c` 和 `pca9557`；四项未取得可复核 L1 证据前，M1 保持未关闭。
