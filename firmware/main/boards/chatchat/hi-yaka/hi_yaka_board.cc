@@ -14,14 +14,14 @@
 #include <esp_system.h>
 #include <sdkconfig.h>
 
-#define TAG "HiYakaV3"
+#define TAG "HiYaKa"
 
 #if !defined(CONFIG_IDF_TARGET_ESP32C6) || !CONFIG_IDF_TARGET_ESP32C6
-#error "hi-yaka-v3 is defined only for ESP32-C6"
+#error "hi-yaka is defined only for ESP32-C6"
 #endif
 
 #if defined(CONFIG_SPIRAM) && CONFIG_SPIRAM
-#error "ESP32-C6 does not support external PSRAM; hi-yaka-v3 must remain a no-PSRAM build"
+#error "ESP32-C6 does not support external PSRAM; hi-yaka must remain a no-PSRAM build"
 #endif
 
 namespace {
@@ -44,10 +44,11 @@ constexpr std::array<ExpectedI2cDevice, 5> kExpectedI2cDevices = {{
 
 }  // namespace
 
-class HiYakaV3Board : public WifiBoard {
+class HiYaKaBoard : public WifiBoard {
 private:
     i2c_master_bus_handle_t i2c_bus_ = nullptr;
     i2c_master_dev_handle_t pca9557_ = nullptr;
+    bool pca_safe_state_verified_ = false;
 
     void LogPlatformBaseline() {
         uint32_t flash_id = 0;
@@ -55,7 +56,7 @@ private:
         esp_err_t id_result = esp_flash_read_id(nullptr, &flash_id);
         esp_err_t size_result = esp_flash_get_size(nullptr, &flash_size);
 
-        ESP_LOGI(TAG, "M1 board=hi-yaka-v3 target=esp32c6 psram=unsupported");
+        ESP_LOGI(TAG, "M1 board=hi-yaka target=esp32c6 psram=unsupported");
         ESP_LOGI(TAG, "Reset reason=%d", static_cast<int>(esp_reset_reason()));
         if (id_result == ESP_OK && size_result == ESP_OK) {
             ESP_LOGI(TAG, "Flash id=0x%08" PRIx32 " size=%" PRIu32 " bytes", flash_id,
@@ -138,6 +139,7 @@ private:
             configuration == YAKA_PCA9557_SAFE_CONFIGURATION) {
             ESP_LOGI(TAG, "PCA9557 safe state verified: output=0x%02X config=0x%02X", output,
                      configuration);
+            pca_safe_state_verified_ = true;
         } else {
             ESP_LOGE(TAG,
                      "PCA9557 safe-state readback failed: output=0x%02X/%s config=0x%02X/%s",
@@ -159,7 +161,7 @@ private:
     }
 
 public:
-    HiYakaV3Board() {
+    HiYaKaBoard() {
         LogPlatformBaseline();
         InitializeI2c();
         InitializePca9557SafeState();
@@ -171,6 +173,18 @@ public:
         static DummyAudioCodec codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE);
         return &codec;
     }
+
+    bool OtaFirstBootSelfTest() const {
+        const bool heap_available =
+            heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT) >= 16384;
+        ESP_LOGI(TAG, "OTA first-boot self-test: i2c=%d pca_safe=%d heap=%d",
+                 i2c_bus_ != nullptr, pca_safe_state_verified_, heap_available);
+        return i2c_bus_ != nullptr && pca_safe_state_verified_ && heap_available;
+    }
 };
 
-DECLARE_BOARD(HiYakaV3Board);
+DECLARE_BOARD(HiYaKaBoard);
+
+bool hi_yaka_ota_first_boot_self_test() {
+    return static_cast<HiYaKaBoard&>(Board::GetInstance()).OtaFirstBootSelfTest();
+}

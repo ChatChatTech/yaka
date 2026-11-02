@@ -1,15 +1,15 @@
-#ifndef _HI_YAKA_V3_CONFIG_H_
-#define _HI_YAKA_V3_CONFIG_H_
+#ifndef _HI_YAKA_CONFIG_H_
+#define _HI_YAKA_CONFIG_H_
 
 #include <driver/gpio.h>
 #include <driver/i2c_types.h>
 
 // M1 uses a dummy codec. These rates are placeholders for the application
-// interface and are not the final YaKa audio contract.
+// interface and are not the final HiYaKa audio contract.
 #define AUDIO_INPUT_SAMPLE_RATE 16000
 #define AUDIO_OUTPUT_SAMPLE_RATE 16000
 
-// Shared I2C bus from the signed YaKa 3.0 schematic.
+// Shared I2C bus from the signed HiYaKa schematic.
 #define YAKA_I2C_PORT I2C_NUM_0
 #define YAKA_I2C_SDA_GPIO GPIO_NUM_10
 #define YAKA_I2C_SCL_GPIO GPIO_NUM_11
@@ -29,4 +29,4 @@
 #define YAKA_PCA9557_SAFE_OUTPUT 0x40
 #define YAKA_PCA9557_SAFE_CONFIGURATION 0x38
 
-#endif  // _HI_YAKA_V3_CONFIG_H_
+#endif  // _HI_YAKA_CONFIG_H_

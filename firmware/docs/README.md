@@ -1,10 +1,13 @@
-# YaKa 固件公开文档
+# HiYaKa 固件公开文档
 
-## YaKa 专项
+## HiYaKa 专项
 
 - [固件总体架构](yaka/firmware-architecture.md)
 - [M1 基线说明](yaka/m1-baseline.md)
-- [YaKa 板型说明](../main/boards/chatchat/hi-yaka-v3/README.md)
+- [OTA、资源预算与构建追溯合同](yaka/update-assurance.md)
+- [首板验证与证据包](bringup/README.md)
+- [证据与事实治理](governance/EVIDENCE_POLICY.md)
+- [HiYaKa 板型说明](../main/boards/chatchat/hi-yaka/README.md)
 - [公开快照来源与边界](../PUBLIC_RELEASE.md)
 
 ## 上游开发文档

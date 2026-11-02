@@ -1,13 +1,13 @@
-# Hi YaKa Firmware
+# HiYaKa Firmware
 
-本目录是 YaKa 3.0 的公开固件快照，基于 `78/xiaozhi-esp32` 的固定发布基线开发。私有开发历史、内部 PRD、硬件制造审计和供应链文件不随公开快照发布；来源和验证边界见 [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md)。
+本目录是 ChatChat HiYaKa 的公开固件快照，基于 `78/xiaozhi-esp32` 的固定发布基线开发。私有开发历史、内部 PRD、硬件制造审计和供应链文件不随公开快照发布；来源和验证边界见 [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md)。
 
-- 当前阶段：`M1 — 最小板级启动与总线安全态`
+- 当前阶段：`PH0–PH5 L0 前置基线完成；等待 M1 首板验证`
 - 上游基线：`xiaozhi-esp32 v2.5.2` / `49b4380b3faa0ceadd28a3e78aaf0f311c46c57e`
 - 目标：ESP32-C6、ESP-IDF 6.1、16 MiB 外置 Flash、无 PSRAM
-- 当前板型：`chatchat/hi-yaka-v3`
+- 当前板型：ChatChat HiYaKa（构建标识：`chatchat/hi-yaka`）
 
-M1 只覆盖构建、启动诊断、UART 日志、I2C 探测和 PCA9557 安全默认态；LCD、TF、音频、NFC 业务和产品交互尚未进入实板通过状态。文档总入口见 [YaKa 固件公开文档](docs/README.md)，总体设计见 [固件总体架构](docs/yaka/firmware-architecture.md)，阶段边界见 [M1 基线说明](docs/yaka/m1-baseline.md)，硬件入口见 [板型文档](main/boards/chatchat/hi-yaka-v3/README.md)。
+当前公开代码包含产品状态协调、业务闭环、可靠录音合同、OTA/资源保障和首板证据工具；这些结论仍只属于 L0。LCD、TF、音频、NFC 业务和产品交互尚未取得实板通过状态。文档入口见 [HiYaKa 固件公开文档](docs/README.md)，总体设计见 [固件总体架构](docs/yaka/firmware-architecture.md)，阶段边界见 [M1 基线说明](docs/yaka/m1-baseline.md)，硬件入口见 [板型文档](main/boards/chatchat/hi-yaka/README.md)。
 
 ---
 

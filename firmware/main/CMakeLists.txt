@@ -893,8 +893,8 @@ elseif(CONFIG_BOARD_TYPE_LC_S3_WIFI_1_54TFT)
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_20_4)
     set(BUILTIN_ICON_FONT font_material_symbols_20_4)
     set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
-elseif(CONFIG_BOARD_TYPE_HI_YAKA_V3)
-    set(BOARD_DIR "chatchat/hi-yaka-v3")
+elseif(CONFIG_BOARD_TYPE_HI_YAKA)
+    set(BOARD_DIR "chatchat/hi-yaka")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_20_4)
     set(BUILTIN_ICON_FONT font_material_symbols_20_4)
     set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_32)
@@ -939,6 +939,17 @@ file(GLOB BOARD_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_DIR}/*.c
 )
 list(APPEND SOURCES ${BOARD_SOURCES})
+
+if(CONFIG_BOARD_TYPE_HI_YAKA)
+    list(APPEND SOURCES
+        "yaka/business_flows.cc"
+        "yaka/capability_registry.cc"
+        "yaka/product_controller.cc"
+        "yaka/recording_store.cc"
+        "yaka/update_assurance.cc"
+    )
+    list(APPEND INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/yaka")
+endif()
 
 # Select one audio engine for each chip family
 if(CONFIG_IDF_TARGET_ESP32S3 OR CONFIG_IDF_TARGET_ESP32P4 OR CONFIG_IDF_TARGET_ESP32S31)
