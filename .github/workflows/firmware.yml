@@ -43,6 +43,14 @@ jobs:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v7
+      - name: Compile all pre-board hardware adapters
+        shell: bash
+        run: |
+          source "$IDF_PATH/export.sh"
+          python scripts/build.py chatchat/hi-yaka \
+            --name hi-yaka-lab \
+            --language zh-CN \
+            --wake-word disabled
       - name: Build HiYaKa with ESP-IDF 6.1
         shell: bash
         run: |
