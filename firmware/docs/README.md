@@ -2,6 +2,8 @@
 
 ## HiYaKa 专项
 
+- [固件 PRD 与里程碑](governance/FIRMWARE_PRD.md)
+- [硬件连接与固件接口契约](hardware/HARDWARE_MODULE_INTERFACES.md)
 - [固件总体架构](yaka/firmware-architecture.md)
 - [M1 基线说明](yaka/m1-baseline.md)
 - [OTA、资源预算与构建追溯合同](yaka/update-assurance.md)
@@ -18,4 +20,4 @@
 - [MQTT + UDP 协议](mqtt-udp_zh.md)
 - [MCP 使用说明](mcp-usage_zh.md)
 
-内部产品 PRD、硬件制造审计、飞书同步登记和供应链资料不属于公开固件快照。
+产品决策台账、硬件制造审计、飞书同步登记和供应链资料不属于公开固件快照。
