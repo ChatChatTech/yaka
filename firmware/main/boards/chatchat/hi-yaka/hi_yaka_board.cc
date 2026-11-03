@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <memory>
 
+#include <driver/gpio.h>
 #include <driver/i2c_master.h>
 #include <esp_err.h>
 #include <esp_flash.h>
@@ -91,6 +92,24 @@ private:
     std::unique_ptr<hi_yaka::RecordingStore> recording_store_;
     std::unique_ptr<hi_yaka::RecordingStoragePortAdapter> recording_port_;
     bool pca_safe_state_verified_ = false;
+
+    void InitializeCriticalSafeGpios() {
+        // PA_EN controls the HT8691R boost/power-amplifier domain.  Force the
+        // output latch low before changing the pin direction so a boot or
+        // reset cannot create an enable pulse while the rest of the board is
+        // still being initialized.  The audio codec may take ownership later
+        // only in the explicitly enabled laboratory build.
+        ESP_ERROR_CHECK(gpio_set_level(YAKA_AUDIO_PA_ENABLE_GPIO, 0));
+        gpio_config_t config = {};
+        config.pin_bit_mask = 1ULL << YAKA_AUDIO_PA_ENABLE_GPIO;
+        config.mode = GPIO_MODE_OUTPUT;
+        config.pull_up_en = GPIO_PULLUP_DISABLE;
+        config.pull_down_en = GPIO_PULLDOWN_DISABLE;
+        config.intr_type = GPIO_INTR_DISABLE;
+        ESP_ERROR_CHECK(gpio_config(&config));
+        ESP_LOGI(TAG, "critical safe state: PA_EN GPIO%d forced low",
+                 static_cast<int>(YAKA_AUDIO_PA_ENABLE_GPIO));
+    }
 
     void LogPlatformBaseline() {
         uint32_t flash_id = 0;
@@ -333,6 +352,7 @@ private:
 
 public:
     HiYaKaBoard() {
+        InitializeCriticalSafeGpios();
         LogPlatformBaseline();
         InitializeI2c();
         InitializePca9557SafeState();

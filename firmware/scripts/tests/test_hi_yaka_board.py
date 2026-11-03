@@ -83,6 +83,19 @@ class HiYaKaBoardContractTest(unittest.TestCase):
         self.assertIn("defined(CONFIG_SPIRAM) && CONFIG_SPIRAM", source)
         self.assertIn("DummyAudioCodec", source)
 
+    def test_pa_enable_is_forced_low_before_board_initialization(self):
+        source = (BOARD_DIR / "hi_yaka_board.cc").read_text(encoding="utf-8")
+        safe_function = source.index("void InitializeCriticalSafeGpios()")
+        latch_low = source.index("gpio_set_level(YAKA_AUDIO_PA_ENABLE_GPIO, 0)", safe_function)
+        output_mode = source.index("config.mode = GPIO_MODE_OUTPUT", safe_function)
+        constructor = source.index("HiYaKaBoard()")
+        safe_call = source.index("InitializeCriticalSafeGpios();", constructor)
+        baseline_call = source.index("LogPlatformBaseline();", constructor)
+        i2c_call = source.index("InitializeI2c();", constructor)
+        self.assertLess(latch_low, output_mode)
+        self.assertLess(safe_call, baseline_call)
+        self.assertLess(safe_call, i2c_call)
+
     def test_lcd_does_not_consume_the_only_user_spi_controller(self):
         lcd_io = (BOARD_DIR / "hi_yaka_expander_lcd_io.cc").read_text(encoding="utf-8")
         self.assertIn("parlio_new_tx_unit", lcd_io)
